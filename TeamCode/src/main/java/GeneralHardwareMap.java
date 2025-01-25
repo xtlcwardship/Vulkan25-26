@@ -30,7 +30,7 @@ public class GeneralHardwareMap {
 
         //Define all hardware
         public VoltageSensor batteryVoltageSensor;
-        public DcMotor frontLeft, frontRight, backLeft, backRight, slide, shoulder;
+        public DcMotor leftFront, rightFront, leftBack, rightBack, slide, shoulder;
         public Limelight3A limelight;
         public final static double slideLAngle_HOME = 0.0;
         public final static double slideLAngle_MIN_RANGE = 0.0;
@@ -111,19 +111,19 @@ public class GeneralHardwareMap {
                 //slideLAngle.setPosition(slideLAngle_HOME);
                 //slideLAngle.setPosition(slideLAngle_MAX_RANGE);
 
-                frontLeft = this.opMode.hardwareMap.dcMotor.get("frontLeft");
-                frontLeft.setDirection(DcMotor.Direction.REVERSE);
-                frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                leftFront = this.opMode.hardwareMap.dcMotor.get("leftFront");
+                leftFront.setDirection(DcMotor.Direction.REVERSE);
+                leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-                frontRight = this.opMode.hardwareMap.dcMotor.get("frontRight");
-                frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                rightFront = this.opMode.hardwareMap.dcMotor.get("rightFront");
+                rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-                backLeft = this.opMode.hardwareMap.dcMotor.get("backLeft");
-                backLeft.setDirection(DcMotor.Direction.REVERSE);
-                backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                leftBack = this.opMode.hardwareMap.dcMotor.get("leftBack");
+                leftBack.setDirection(DcMotor.Direction.REVERSE);
+                leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-                backRight = this.opMode.hardwareMap.dcMotor.get("backRight");
-                backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+                rightBack = this.opMode.hardwareMap.dcMotor.get("rightBack");
+                rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
                 slide = this.opMode.hardwareMap.dcMotor.get("slide1");
                 slide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);

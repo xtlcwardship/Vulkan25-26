@@ -1,6 +1,9 @@
+/*
 package Opmodes;
+ */
 
 //import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+/*
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -39,6 +42,7 @@ public class AprilTagLocalization {
      * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
      * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list.
      */
+/*
     @TeleOp(name = "Concept: AprilTag", group = "Concept")
     //@Disabled
     public class ConceptAprilTag extends LinearOpMode {
@@ -48,11 +52,13 @@ public class AprilTagLocalization {
         /**
          * The variable to store our instance of the AprilTag processor.
          */
+/*
         private AprilTagProcessor aprilTag;
 
         /**
          * The variable to store our instance of the vision portal.
          */
+/*
         private VisionPortal visionPortal;
 
         @Override
@@ -94,6 +100,7 @@ public class AprilTagLocalization {
         /**
          * Initialize the AprilTag processor.
          */
+/*
         private void initAprilTag() {
 
             // Create the AprilTag processor.
@@ -163,6 +170,7 @@ public class AprilTagLocalization {
         /**
          * Add telemetry about AprilTag detections.
          */
+/*
         private void telemetryAprilTag() {
 
             List<AprilTagDetection> currentDetections = aprilTag.getDetections();
@@ -191,3 +199,5 @@ public class AprilTagLocalization {
     }   // end class
 
 }
+
+ */
