@@ -2,63 +2,60 @@ package Opmodes;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
-
 @TeleOp
 public class testy extends LinearOpMode {
-    private Servo one;
-    private Servo two;
-    private DcMotor slideythingy1;
+    //private Servo one;
+    //private CRServo two;
     private Servo three;
-    //private Servo four;
+    private Servo four;
     //private Servo five;
+    //private Servo six;
     @Override
     public void runOpMode() throws InterruptedException {
-        slideythingy1 = hardwareMap.get(DcMotor.class, "slide1");
-        slideythingy1.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //IF PROBLEM CHANGE TO RUN_TO_POSITION
-        slideythingy1.setDirection(DcMotor.Direction.REVERSE);
-        slideythingy1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        one = hardwareMap.get(Servo.class, "shit2");
-        two = hardwareMap.get(Servo.class, "shit1");
-        three = hardwareMap.get(Servo.class, "wrist");
-        //four = hardwareMap.get(Servo.class, "die4");
-        //five = hardwareMap.get(Servo.class, "die5");
+        //one = hardwareMap.get(Servo.class, "turnSlurp");
+        //two = hardwareMap.get(CRServo.class, "slurp");
+        three = hardwareMap.get(Servo.class, "leftShoulder");
+        four = hardwareMap.get(Servo.class, "rightShoulder");
+        //five = hardwareMap.get(Servo.class, "turnGrabber");
+        //six = hardwareMap.get(Servo.class, "openGrabber");
         telemetry.addData("Status", "Initialized");
         telemetry.update();
         waitForStart();
         while (opModeIsActive()) {
-            double slidePower1 = 2.0;
-            double stop = 0.0;
 
             if (gamepad1.y) {
                 // move to 0 degrees.
-                one.setPosition(0.07);
-                two.setPosition(0.93);
-                three.setPosition(0.75);
-                //four.setPosition(0.0);
-                //five.setPosition(0.0);
+                //one.setPosition(0.5);
+                three.setPosition(0.6);
+                four.setPosition(0.4);
+                //five.setPosition(0);
+                //six.setPosition(0.05);
             }
             else if (gamepad1.x) {
                 // move to 90 degrees.
-                one.setPosition(0.2);
-                two.setPosition(0.8);
-                three.setPosition(0.75);
-                //four.setPosition(0.5);
-                //five.setPosition(0.5);
+                //one.setPosition(0.88);
+                three.setPosition(0.25);
+                four.setPosition(0.75);
+                //five.setPosition(0.75);
+                //six.setPosition(0.23);
             }
-            if (gamepad2.dpad_up && slideythingy1.getCurrentPosition() < 2456) {
-                slideythingy1.setPower(slidePower1);
-            } else if (gamepad2.dpad_down && slideythingy1.getCurrentPosition() > 0) {
-                slideythingy1.setPower(-slidePower1);
-            } else {
-                slideythingy1.setPower(stop);
+
+            else if (gamepad1.a) {
+                // move to 90 degrees.
+                //one.setPosition(0.65);
+                three.setPosition(0.55);
+                four.setPosition(0.45);
+                //five.setPosition(0.4);
+                //six.setPosition(0.23);
             }
-            telemetry.addData("Servo Position", one.getPosition());
-            telemetry.addData("Servo Position", two.getPosition());
+            //telemetry.addData("Servo Position", one.getPosition());
             telemetry.addData("Servo Position", three.getPosition());
-            //telemetry.addData("Servo Position", four.getPosition());
+            telemetry.addData("Servo Position", four.getPosition());
             //telemetry.addData("Servo Position", five.getPosition());
+            //telemetry.addData("Servo Position", six.getPosition());
             telemetry.addData("Status", "Running");
             telemetry.update();
         }
