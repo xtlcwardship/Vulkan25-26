@@ -21,7 +21,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import pedroPathing.constants.FConstants;
 import pedroPathing.constants.LConstants;
 @Autonomous
-public class PedroAuton extends OpMode {
+public class PedroAuton extends OpMode  {
     private Follower follower;
     private Timer pathTimer, actionTimer, opmodeTimer;
     private int pathState;
