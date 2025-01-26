@@ -21,7 +21,7 @@ import pedroPathing.constants.LConstants;
 @Config
 @Autonomous (name="Auton Park", group = "Autonomous")
 
-public class ParkAuton extends OpMode {
+public class ParkAuton extends OpMode  {
     private Follower follower;
     private Timer pathTimer, actionTimer, opmodeTimer;
     private int pathState;
