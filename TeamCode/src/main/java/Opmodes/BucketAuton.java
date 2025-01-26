@@ -1,4 +1,5 @@
 package Opmodes;
+import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.localization.Pose;
 import com.pedropathing.pathgen.BezierCurve;
@@ -17,33 +18,35 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import pedroPathing.constants.FConstants;
 import pedroPathing.constants.LConstants;
-
-public class BucketAuton extends LinearOpMode {
+@Config
+@Autonomous (name="Auton Bucket", group = "Autonomous")
+public class BucketAuton extends OpMode {
     private Follower follower;
     private Timer pathTimer, actionTimer, opmodeTimer;
     private int pathState;
-    private Path scorePreload, park;
+    private PathChain scorePreload, park;
     private PathChain slurp1, slurp2, slurp3, score1, score2, score3;
-    private final Pose startPose = new Pose(134, 45, Math.toRadians(-180));
-    private final Pose slurp1Pose = new Pose(110, 21, Math.toRadians(-180));
-    private final Pose score1Pose = new Pose(127, 14, Math.toRadians(-220));
-    private final Pose slurp2Pose = new Pose(111, 11, Math.toRadians(-180));
-    private final Pose score2Pose = new Pose(127, 14, Math.toRadians(-220));
-    private final Pose slurp3Pose = new Pose(112, 4, Math.toRadians(-180));
-    private final Pose score3Pose = new Pose(127,14, Math.toRadians(-220));
+    private final Pose startPose = new Pose(134, 45, Math.toRadians(180));
+    private final Pose slurp1Pose = new Pose(110, 21, Math.toRadians(180));
+    private final Pose score1Pose = new Pose(127, 14, Math.toRadians(150));
+    private final Pose slurp2Pose = new Pose(111, 11, Math.toRadians(180));
+    private final Pose score2Pose = new Pose(127, 14, Math.toRadians(150));
+    private final Pose slurp3Pose = new Pose(112, 4, Math.toRadians(180));
+    private final Pose score3Pose = new Pose(127,14, Math.toRadians(150));
     //private final Pose grabPose = new Pose(133, 120, Math.toRadians(180));
     //private final Pose clipPose2 = new Pose(100, 76, Math.toRadians(-180));
     //private final Pose clipPose3 = new Pose(100, 74, Math.toRadians(-180));
    //private final Pose clipPose4 = new Pose(100, 72, Math.toRadians(-180));
-    private final Pose end = new Pose(83, 43, Math.toRadians(-180));
+    private final Pose end = new Pose(83, 43, Math.toRadians(180));
     private Servo Lshoulder, Rshoulder, turnGrabber, openGrabber, slurp, turnSlurp;
     private DcMotor Lslide, Rslide, out;
 
     public void buildPaths()
     {
-        scorePreload = new Path(new BezierLine(new Point(startPose), new Point(score1Pose)));
-        scorePreload.setLinearHeadingInterpolation(startPose.getHeading(), score1Pose.getHeading());
-
+        scorePreload = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(startPose), new Point(score1Pose)))
+                .setLinearHeadingInterpolation(startPose.getHeading(), score1Pose.getHeading())
+                .build();
         slurp1 = follower.pathBuilder()
                 .addPath(new BezierLine(new Point(score1Pose), new Point(slurp1Pose)))
                 .setLinearHeadingInterpolation(score1Pose.getHeading(), slurp1Pose.getHeading())
@@ -68,8 +71,10 @@ public class BucketAuton extends LinearOpMode {
                 .addPath(new BezierLine(new Point(slurp3Pose), new Point(score3Pose)))
                 .setLinearHeadingInterpolation(slurp3Pose.getHeading(), score3Pose.getHeading())
                 .build();
-        park = new Path(new BezierLine(new Point(score3Pose), new Point(end)));
-        park.setLinearHeadingInterpolation(score3Pose.getHeading(), end.getHeading());
+        park = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(score3Pose), new Point(end)))
+                .setLinearHeadingInterpolation(score3Pose.getHeading(), end.getHeading())
+                .build();
 
     }
     public void setPathState(int pState) {
@@ -160,31 +165,45 @@ public class BucketAuton extends LinearOpMode {
         }
     }
     @Override
-    public void runOpMode() throws InterruptedException {
-        Rshoulder = hardwareMap.get(Servo.class, "rightShoulder");
-        turnGrabber = hardwareMap.get(Servo.class, "turnGrabber");
-        openGrabber = hardwareMap.get(Servo.class, "openGrabber");
-        Lslide = hardwareMap.get(DcMotor.class, "leftSlide");
-        Rslide = hardwareMap.get(DcMotor.class, "rightSlide");
-        turnSlurp = hardwareMap.get(Servo.class, "turnSlurp");
-        Lslide.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //IF PROBLEM CHANGE TO RUN_TO_POSITION
-        Lslide.setDirection(DcMotor.Direction.REVERSE);
-        Lslide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        Rslide.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //IF PROBLEM CHANGE TO RUN_TO_POSITION
-        Rslide.setDirection(DcMotor.Direction.FORWARD);
-        Rslide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+    public void loop() {
 
-        waitForStart();
+        // These loop the movements of the robot
+        follower.update();
+        autonomousPathUpdate();
+
+        // Feedback to Driver Hub
+        telemetry.addData("path state", pathState);
+        telemetry.addData("x", follower.getPose().getX());
+        telemetry.addData("y", follower.getPose().getY());
+        telemetry.addData("heading", follower.getPose().getHeading());
+        telemetry.update();
+    }
+
+    /** This method is called once at the init of the OpMode. **/
+    @Override
+    public void init() {
         pathTimer = new Timer();
+        opmodeTimer = new Timer();
+        opmodeTimer.resetTimer();
+
         Constants.setConstants(FConstants.class, LConstants.class);
         follower = new Follower(hardwareMap);
         follower.setStartingPose(startPose);
         buildPaths();
-        follower.update();
-        autonomousPathUpdate();
-        telemetry.addData("Path State", pathState);
-        telemetry.addData("Position", follower.getPose().toString());
-        telemetry.update();
+    }
+    @Override
+    public void init_loop() {}
 
+    /** This method is called once at the start of the OpMode.
+     * It runs all the setup actions, including building paths and starting the path system **/
+    @Override
+    public void start() {
+        opmodeTimer.resetTimer();
+        setPathState(0);
+    }
+
+    /** We do not use this because everything should automatically disable **/
+    @Override
+    public void stop() {
     }
 }

@@ -2,6 +2,9 @@ package Opmodes;
 
 import static java.lang.Thread.sleep;
 
+import android.media.audiofx.DynamicsProcessing;
+
+import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.localization.Pose;
 import com.pedropathing.pathgen.BezierCurve;
@@ -20,12 +23,14 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import pedroPathing.constants.FConstants;
 import pedroPathing.constants.LConstants;
-@Autonomous
-public class PedroAuton extends OpMode  {
+@Config
+@Autonomous (name="Auton Specimen Red", group = "Autonomous")
+public class PedroAuton extends OpMode {
+
     private Follower follower;
     private Timer pathTimer, actionTimer, opmodeTimer;
     private int pathState;
-    private Path scorePreload, park;
+    private PathChain scorePreload, park;
     private PathChain pushThings, prePush, grab1, grabScore1, back1, grabScore2, back2, grabScore3;
     private final Pose startPose = new Pose(134, 96, Math.toRadians(180));
     private final Pose clipPose = new Pose(130, 85, Math.toRadians(180));
@@ -44,8 +49,11 @@ public class PedroAuton extends OpMode  {
 
     public void buildPaths()
     {
-        scorePreload = new Path(new BezierCurve(new Point(startPose), new Point(clipPose)));
-        scorePreload.setLinearHeadingInterpolation(startPose.getHeading(), clipPose.getHeading());
+        Constants.setConstants(FConstants.class, LConstants.class);
+        scorePreload = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(startPose), new Point(clipPose)))
+                .setLinearHeadingInterpolation(startPose.getHeading(), clipPose.getHeading())
+                .build();
         //clip();
 
         prePush = follower.pathBuilder()
@@ -92,8 +100,10 @@ public class PedroAuton extends OpMode  {
                 .setLinearHeadingInterpolation(grabPose.getHeading(), clipPose4.getHeading())
                 .build();
         //clip();
-        park = new Path(new BezierLine(new Point(clipPose4), new Point(end)));
-        park.setLinearHeadingInterpolation(startPose.getHeading(), end.getHeading());
+        park = follower.pathBuilder()
+                .addPath(new BezierLine(new Point(clipPose4), new Point(end)))
+                .setLinearHeadingInterpolation(clipPose4.getHeading(), end.getHeading())
+                .build();
 
 
     }
