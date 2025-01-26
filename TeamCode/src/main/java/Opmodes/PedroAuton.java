@@ -1,5 +1,7 @@
 package Opmodes;
 
+import static java.lang.Thread.sleep;
+
 import com.pedropathing.follower.Follower;
 import com.pedropathing.localization.Pose;
 import com.pedropathing.pathgen.BezierCurve;
@@ -18,33 +20,33 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import pedroPathing.constants.FConstants;
 import pedroPathing.constants.LConstants;
-
-public class PedroAuton extends LinearOpMode {
+@Autonomous
+public class PedroAuton extends OpMode {
     private Follower follower;
     private Timer pathTimer, actionTimer, opmodeTimer;
     private int pathState;
     private Path scorePreload, park;
     private PathChain pushThings, prePush, grab1, grabScore1, back1, grabScore2, back2, grabScore3;
-    private final Pose startPose = new Pose(134, 96, Math.toRadians(-180));
-    private final Pose clipPose = new Pose(100, 78, Math.toRadians(-180));
-    private final Pose pushPose = new Pose(76, 120, Math.toRadians(-180));
-    private final Pose pushBack1 = new Pose(130, 120, Math.toRadians(-180));
-    private final Pose pushBack2 = new Pose(130, 133, Math.toRadians(-180));
-    private final Pose pushBack3 = new Pose(73, 133, Math.toRadians(-180));
-    private final Pose pushBack4 = new Pose(130,142, Math.toRadians(-180));
+    private final Pose startPose = new Pose(134, 96, Math.toRadians(180));
+    private final Pose clipPose = new Pose(130, 85, Math.toRadians(180));
+    private final Pose pushPose = new Pose(76, 120, Math.toRadians(180));
+    private final Pose pushBack1 = new Pose(130, 120, Math.toRadians(180));
+    private final Pose pushBack2 = new Pose(130, 133, Math.toRadians(180));
+    private final Pose pushBack3 = new Pose(73, 133, Math.toRadians(180));
+    private final Pose pushBack4 = new Pose(130,142, Math.toRadians(180));
     private final Pose grabPose = new Pose(133, 120, Math.toRadians(180));
-    private final Pose clipPose2 = new Pose(100, 76, Math.toRadians(-180));
-    private final Pose clipPose3 = new Pose(100, 74, Math.toRadians(-180));
-    private final Pose clipPose4 = new Pose(100, 72, Math.toRadians(-180));
-    private final Pose end = new Pose(134, 127, Math.toRadians(-180));
-    private Servo Lshoulder, Rshoulder, turnGrabber, openGrabber, slurp, turnSlurp;
+    private final Pose clipPose2 = new Pose(100, 76, Math.toRadians(180));
+    private final Pose clipPose3 = new Pose(100, 74, Math.toRadians(180));
+    private final Pose clipPose4 = new Pose(100, 72, Math.toRadians(180));
+    private final Pose end = new Pose(134, 127, Math.toRadians(180));
+    private Servo Rshoulder, turnGrabber, openGrabber, slurp, turnSlurp;
     private DcMotor Lslide, Rslide, out;
 
     public void buildPaths()
     {
-        scorePreload = new Path(new BezierLine(new Point(startPose), new Point(clipPose)));
+        scorePreload = new Path(new BezierCurve(new Point(startPose), new Point(clipPose)));
         scorePreload.setLinearHeadingInterpolation(startPose.getHeading(), clipPose.getHeading());
-        clip();
+        //clip();
 
         prePush = follower.pathBuilder()
                 .addPath(new BezierCurve(new Point(clipPose), new Point(118, 121), new Point(pushPose)))
@@ -64,32 +66,32 @@ public class PedroAuton extends LinearOpMode {
                 .addBezierLine(new Point(pushBack4), new Point(grabPose))
                 .setLinearHeadingInterpolation(pushBack4.getHeading(), grabPose.getHeading())
                 .build();
-        grab();
+        //grab();
         grabScore1 = follower.pathBuilder()
                 .addBezierLine(new Point(grabPose), new Point(clipPose2))
                 .setLinearHeadingInterpolation(grabPose.getHeading(), clipPose2.getHeading())
                 .build();
-        clip();
+        //clip();
         back1 = follower.pathBuilder()
                 .addBezierLine(new Point(clipPose2), new Point(grabPose))
                 .setLinearHeadingInterpolation(clipPose2.getHeading(), grabPose.getHeading())
                 .build();
-        grab();
+        //grab();
         grabScore2 = follower.pathBuilder()
                 .addBezierLine(new Point(grabPose), new Point(clipPose3))
                 .setLinearHeadingInterpolation(grabPose.getHeading(), clipPose3.getHeading())
                 .build();
-        clip();
+        //clip();
         back2 = follower.pathBuilder()
                 .addBezierLine(new Point(clipPose3), new Point(grabPose))
                 .setLinearHeadingInterpolation(clipPose3.getHeading(), grabPose.getHeading())
                 .build();
-        grab();
+        //grab();
         grabScore3 = follower.pathBuilder()
                 .addBezierLine(new Point(grabPose), new Point(clipPose4))
                 .setLinearHeadingInterpolation(grabPose.getHeading(), clipPose4.getHeading())
                 .build();
-        clip();
+        //clip();
         park = new Path(new BezierLine(new Point(clipPose4), new Point(end)));
         park.setLinearHeadingInterpolation(startPose.getHeading(), end.getHeading());
 
@@ -206,90 +208,92 @@ public class PedroAuton extends LinearOpMode {
     {
         //shoulder back, claw open, claw close, shoulder forward, claw rotate, slide up, claw rotate, slide down, claw open
         turnSlurp.setPosition(0.85);
-        Lshoulder.setPosition(0.45);
+        //Lshoulder.setPosition(0.45);
         Rshoulder.setPosition(0.55);
         turnGrabber.setPosition(0.75);
         openGrabber.setPosition(0.25);
-        sleep(500);
+
         openGrabber.setPosition(0.05);
-        sleep(500);
+
         turnGrabber.setPosition(0.2);
-        Lshoulder.setPosition(0.7);
+        //Lshoulder.setPosition(0.7);
         Rshoulder.setPosition(0.3);
 
     }
-    public void clip()
-    {
+    public void clip() {
         turnSlurp.setPosition(0.85);
         openGrabber.setPosition(0.05);
-        Lshoulder.setPosition(0.7);
+        //Lshoulder.setPosition(0.7);
         Rshoulder.setPosition(0.3);
         if (Lslide.getCurrentPosition() < 300 || Rslide.getCurrentPosition() < 300)//MAKE SURE THE MOTORS ARE GOING THE RIGHT WAY BEFORE RUNNING THIS!!!!!
         {
-            while (Lslide.getCurrentPosition() < 300 || Rslide.getCurrentPosition() < 300)
-            {
+            while (Lslide.getCurrentPosition() < 300 || Rslide.getCurrentPosition() < 300) {
                 Lslide.setPower(0.75);
                 Rslide.setPower(0.75);
             }
         }
         turnGrabber.setPosition(0.25);
-        sleep(200);
-        Lshoulder.setPosition(0.9);
+
+        //Lshoulder.setPosition(0.9);
         Rshoulder.setPosition(0.1);
         turnGrabber.setPosition(0.05);
         openGrabber.setPosition(0.25);
         if (Lslide.getCurrentPosition() > 10 || Rslide.getCurrentPosition() > 10)//MAKE SURE THE MOTORS ARE GOING THE RIGHT WAY BEFORE RUNNING THIS!!!!!
         {
-            while (Lslide.getCurrentPosition() > 10 || Rslide.getCurrentPosition() > 10)
-            {
+            while (Lslide.getCurrentPosition() > 10 || Rslide.getCurrentPosition() > 10) {
                 Lslide.setPower(-0.75);
                 Rslide.setPower(-0.75);
             }
         }
-
-
-
     }
-
 
 
 
     @Override
-    public void runOpMode() throws InterruptedException {
+    public void loop() {
 
-        Lshoulder = hardwareMap.get(Servo.class, "leftShoulder");
-        Rshoulder = hardwareMap.get(Servo.class, "rightShoulder");
-        turnGrabber = hardwareMap.get(Servo.class, "turnGrabber");
-        openGrabber = hardwareMap.get(Servo.class, "openGrabber");
-        Lslide = hardwareMap.get(DcMotor.class, "leftSlide");
-        Rslide = hardwareMap.get(DcMotor.class, "rightSlide");
-        turnSlurp = hardwareMap.get(Servo.class, "turnSlurp");
-        Lslide.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //IF PROBLEM CHANGE TO RUN_TO_POSITION
-        Lslide.setDirection(DcMotor.Direction.REVERSE);
-        Lslide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        Rslide.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //IF PROBLEM CHANGE TO RUN_TO_POSITION
-        Rslide.setDirection(DcMotor.Direction.FORWARD);
-        Rslide.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        // These loop the movements of the robot
+        follower.update();
+        autonomousPathUpdate();
 
+        // Feedback to Driver Hub
+        telemetry.addData("path state", pathState);
+        telemetry.addData("x", follower.getPose().getX());
+        telemetry.addData("y", follower.getPose().getY());
+        telemetry.addData("heading", follower.getPose().getHeading());
+        telemetry.update();
+    }
 
-        waitForStart();
+    /** This method is called once at the init of the OpMode. **/
+    @Override
+    public void init() {
         pathTimer = new Timer();
+        opmodeTimer = new Timer();
+        opmodeTimer.resetTimer();
+
         Constants.setConstants(FConstants.class, LConstants.class);
         follower = new Follower(hardwareMap);
         follower.setStartingPose(startPose);
         buildPaths();
-        follower.update();
-        autonomousPathUpdate();
-        telemetry.addData("Path State", pathState);
-        telemetry.addData("Position", follower.getPose().toString());
-        telemetry.update();
+    }
+    @Override
+    public void init_loop() {}
 
+    /** This method is called once at the start of the OpMode.
+     * It runs all the setup actions, including building paths and starting the path system **/
+    @Override
+    public void start() {
+        opmodeTimer.resetTimer();
+        setPathState(0);
+    }
 
-
-
-
-
-
-
+    /** We do not use this because everything should automatically disable **/
+    @Override
+    public void stop() {
     }
 }
+
+
+
+
+
