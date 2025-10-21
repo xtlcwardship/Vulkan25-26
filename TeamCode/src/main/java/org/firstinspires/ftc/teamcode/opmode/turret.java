@@ -1,10 +1,10 @@
-
 package org.firstinspires.ftc.teamcode.opmode;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
@@ -12,10 +12,10 @@ import com.qualcomm.robotcore.util.Range;
 public class turret extends LinearOpMode {
     private static final double TARGETTX = 0.0;
 
-    // PID Constants - Tuned for smoother control
-    private static final double kP = 0.005;  // Reduced proportional gain
-    private static final double kI = 0.0005; // Reduced integral gain
-    private static final double kD = 0.02;   // Reduced derivative gain
+    // PID Constants - Tuned for motor control
+    private static final double kP = 0.01;
+    private static final double kI = 0.001;
+    private static final double kD = 0.03;
 
     // PID State Variables
     private double previousError = 0.0;
@@ -23,31 +23,27 @@ public class turret extends LinearOpMode {
     private double lastTime = 0.0;
 
     // Integral windup protection
-    private static final double MAX_INTEGRAL = 5.0; // Reduced maximum integral accumulation
+    private static final double MAX_INTEGRAL = 5.0;
 
     // Control parameters
-    private static final double DEADZONE = 0.3; // Reduced deadzone for better precision
-    private static final double SETTLING_DEADZONE = 0.15; // Even smaller zone for settling
-    private static final long SETTLING_DELAY_MS = 100; // 100ms delay when settled
-    private static final double MIN_POSITION = 0.0; // Minimum servo position
-    private static final double MAX_POSITION = 1.0; // Maximum servo position
-    private static final double CENTER_POSITION = 0.5; // Center position
+    private static final double DEADZONE = 0.3;
+    private static final double MAX_MOTOR_POWER = 0.4; // Maximum motor power for rotation
 
     // Shooter power constants based on target area
-    private static final double MIN_SHOOTER_POWER = 0.2; // Minimum power when far away (small Ta)
-    private static final double MAX_SHOOTER_POWER = 0.8; // Maximum power when close (large Ta)
-    private static final double MIN_TARGET_AREA = 0.1;   // Smallest expected target area
-    private static final double MAX_TARGET_AREA = 5.0;   // Largest expected target area
+    private static final double MIN_SHOOTER_POWER = 0.2;
+    private static final double MAX_SHOOTER_POWER = 0.8;
+    private static final double MIN_TARGET_AREA = 0.1;
+    private static final double MAX_TARGET_AREA = 5.0;
+    double frontLeftPower = (0.15);
+    double frontRightPower = (0.15);
+    double backLeftPower = (0.15);
+    double backRightPower = (0.15);
 
-    private Servo rotationServo;
+    private DcMotor rotationMotor;
     private Limelight3A limelight;
-    private DcMotor Shooter;
-    private DcMotor Shooter2;
-    private double currentPosition;
-
-    // Settling control variables
-    private long lastSettledTime = 0;
-    private boolean isSettled = false;
+    private DcMotor Shooter, Shooter2;
+    private DcMotor FrontLeft, FrontRight, BackLeft, BackRight, IntakeMotor, ShooterMotor, ShooterMotor2, TransportMotor;
+    private Servo IntakeServo;
 
     private double calculatePID(double error) {
         double currentTime = getRuntime();
@@ -55,7 +51,7 @@ public class turret extends LinearOpMode {
 
         // Avoid division by zero on first iteration
         if (dt <= 0) {
-            dt = 0.02; // Assume 20ms loop time
+            dt = 0.02;
         }
 
         // Proportional term
@@ -73,10 +69,6 @@ public class turret extends LinearOpMode {
         // Calculate PID output
         double output = proportional + integral_term + derivative_term;
 
-        // Apply velocity limiting to prevent large jumps
-        double maxVelocity = 0.02; // Maximum position change per loop
-        output = Range.clip(output, -maxVelocity, maxVelocity);
-
         // Update state variables for next iteration
         previousError = error;
         lastTime = currentTime;
@@ -87,20 +79,37 @@ public class turret extends LinearOpMode {
     @Override
     public void runOpMode() {
         // Map hardware
-        rotationServo = hardwareMap.get(Servo.class, "rotationServo"); // Update name as needed
-        rotationServo.setPosition(CENTER_POSITION); // Start at center position
-        currentPosition = CENTER_POSITION;
+        rotationMotor = hardwareMap.get(DcMotor.class, "rotationMotor");
+        rotationMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rotationMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        rotationMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        FrontLeft = hardwareMap.get(DcMotor.class, "FrontLeft");
+        FrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
+        BackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
+        BackRight = hardwareMap.get(DcMotor.class, "BackRight");
+        IntakeServo = hardwareMap.get(Servo.class, "IntakeServo");
+        FrontLeft.setDirection(DcMotor.Direction.REVERSE);
+        BackLeft.setDirection(DcMotor.Direction.REVERSE);
+        FrontRight.setDirection(DcMotor.Direction.FORWARD);
+        BackRight.setDirection(DcMotor.Direction.FORWARD);
+        FrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        BackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        FrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        BackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         Shooter = hardwareMap.get(DcMotor.class, "Shooter");
         Shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        Shooter.setDirection(DcMotorSimple.Direction.REVERSE);
         Shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         Shooter2 = hardwareMap.get(DcMotor.class, "Shooter2");
+        Shooter2.setDirection(DcMotorSimple.Direction.REVERSE);
         Shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         Shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         limelight = hardwareMap.get(Limelight3A.class, "Limelight");
-        limelight.pipelineSwitch(0); // AprilTag pipeline index
+        limelight.pipelineSwitch(0);
         limelight.start();
 
         // Initialize PID timing
@@ -113,6 +122,25 @@ public class turret extends LinearOpMode {
         while (opModeIsActive()) {
             LLResult llResult = limelight.getLatestResult();
             double shooterPower = MIN_SHOOTER_POWER;
+            double y  = -gamepad1.left_stick_y;
+            double x  =  gamepad1.left_stick_x;
+            double rx =  gamepad1.right_stick_x;
+
+            double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
+            frontLeftPower = (y + x + rx) / denominator;
+            backLeftPower = (y - x + rx) / denominator;
+            frontRightPower = (y - x - rx) / denominator;
+            backRightPower = (y + x - rx) / denominator;
+
+            FrontLeft.setPower(frontLeftPower);
+            BackLeft.setPower(backLeftPower);
+            FrontRight.setPower(frontRightPower);
+            BackRight.setPower(backRightPower);
+
+            telemetry.addData("Front Left Power", frontLeftPower);
+            telemetry.addData("Front Right Power", frontRightPower);
+            telemetry.addData("Back Left Power", backLeftPower);
+            telemetry.addData("Back Right Power", backRightPower);
 
             if (llResult != null && llResult.isValid()) {
                 double tx = llResult.getTx();
@@ -121,8 +149,6 @@ public class turret extends LinearOpMode {
                 double absError = Math.abs(error);
 
                 // Calculate shooter power based on target area (distance)
-
-
                 if (ta > 0) {
                     shooterPower = Range.clip(
                             MAX_SHOOTER_POWER - (ta - MIN_TARGET_AREA) *
@@ -138,71 +164,37 @@ public class turret extends LinearOpMode {
                 telemetry.addData("Error", error);
                 telemetry.addData("ShooterPower", shooterPower);
 
-                // Check if we're in the settling zone
-                boolean inSettlingZone = absError <= SETTLING_DEADZONE;
-
-                // Check if we're in the deadzone
-                boolean inDeadzone = absError <= DEADZONE;
-
-                // Update settling status
-                if (inSettlingZone) {
-                    if (!isSettled) {
-                        lastSettledTime = System.currentTimeMillis();
-                        isSettled = true;
-                    }
-                } else {
-                    isSettled = false;
-                }
-
-                // Only make corrections if we're not settled or if enough time has passed
-                long timeSinceSettled = System.currentTimeMillis() - lastSettledTime;
-                boolean shouldMakeCorrection = !inSettlingZone || timeSinceSettled > SETTLING_DELAY_MS;
-
-                if (absError > DEADZONE && shouldMakeCorrection) {
+                // Simple control: if error is outside deadzone, move motor
+                if (absError > DEADZONE) {
                     // Calculate PID output
                     double pidOutput = calculatePID(error);
 
-                    // Convert PID output to position adjustment
-                    // Scale PID output appropriately for servo range
-                    double positionAdjustment = pidOutput * 0.05; // Reduced scale factor
-                    currentPosition += positionAdjustment;
+                    // Convert PID output to motor power
+                    double motorPower = Range.clip(pidOutput * 0.1, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
 
-                    // Clamp position to valid range
-                    currentPosition = Range.clip(currentPosition, MIN_POSITION, MAX_POSITION);
+                    // Set motor power directly
+                    rotationMotor.setPower(motorPower);
 
-                    rotationServo.setPosition(currentPosition);
                     telemetry.addData("Status", "Tracking");
-
-                    // PID debugging telemetry
+                    telemetry.addData("Motor Power", motorPower);
                     telemetry.addData("PID Output", pidOutput);
-                    telemetry.addData("Integral", integral);
-                    telemetry.addData("Derivative", (error - previousError) / 0.02);
-                } else if (inSettlingZone && isSettled) {
-                    // Reset integral when settled to prevent windup
-                    integral = 0.0;
-                    telemetry.addData("Status", "Settled");
-                    telemetry.addData("Settled Time", timeSinceSettled + "ms");
-                } else if (inDeadzone) {
-                    // Reset integral when in deadzone
-                    integral = 0.0;
-                    telemetry.addData("Status", "Centered");
                 } else {
-                    telemetry.addData("Status", "Waiting");
+                    // Stop motor when in deadzone
+                    rotationMotor.setPower(0);
+                    integral = 0.0; // Reset integral to prevent windup
+                    telemetry.addData("Status", "Centered");
                 }
             } else {
-                // Reset integral when no target detected
+                // Stop motor when no target detected
+                rotationMotor.setPower(0);
                 integral = 0.0;
-                isSettled = false;
                 telemetry.addData("Status", "No Data");
             }
 
             Shooter.setPower(shooterPower);
             Shooter2.setPower(shooterPower);
 
-            telemetry.addData("ServoPosition", currentPosition);
-            telemetry.addData("IsSettled", isSettled);
             telemetry.update();
-
             sleep(20);
         }
     }
