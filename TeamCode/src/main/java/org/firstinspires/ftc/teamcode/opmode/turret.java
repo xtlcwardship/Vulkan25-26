@@ -12,22 +12,25 @@ import com.qualcomm.robotcore.util.Range;
 public class turret extends LinearOpMode {
     private static final double TARGETTX = 0.0;
 
-    // PID Constants - Tuned for motor control
-    private static final double kP = 0.01;
-    private static final double kI = 0.001;
-    private static final double kD = 0.03;
+    // PID Constants - Tuned to reduce wobble
+    private static final double kP = 0.008;  // Reduced proportional gain
+    private static final double kI = 0.0005; // Reduced integral gain
+    private static final double kD = 0.08;   // Increased derivative gain for damping
 
     // PID State Variables
     private double previousError = 0.0;
     private double integral = 0.0;
     private double lastTime = 0.0;
+    private double lastMotorPower = 0.0; // Track last motor power for smoothing
 
     // Integral windup protection
-    private static final double MAX_INTEGRAL = 5.0;
+    private static final double MAX_INTEGRAL = 3.0; // Reduced maximum integral
 
-    // Control parameters
-    private static final double DEADZONE = 0.3;
-    private static final double MAX_MOTOR_POWER = 0.4; // Maximum motor power for rotation
+    // Control parameters - Adjusted to reduce wobble
+    private static final double DEADZONE = 0.5; // Increased deadzone
+    private static final double MAX_MOTOR_POWER = 0.3; // Reduced max power
+    private static final double VELOCITY_LIMIT = 0.15; // Maximum change in motor power per loop
+    private static final double MIN_MOTOR_POWER = 0.05; // Minimum power to overcome friction
 
     // Shooter power constants based on target area
     private static final double MIN_SHOOTER_POWER = 0.2;
@@ -42,8 +45,7 @@ public class turret extends LinearOpMode {
     private DcMotor rotationMotor;
     private Limelight3A limelight;
     private DcMotor Shooter, Shooter2;
-    private DcMotor FrontLeft, FrontRight, BackLeft, BackRight, IntakeMotor, ShooterMotor, ShooterMotor2, TransportMotor;
-    private Servo IntakeServo;
+    private DcMotor FrontLeft, FrontRight, BackLeft, BackRight, IntakeMotor;
 
     private double calculatePID(double error) {
         double currentTime = getRuntime();
@@ -62,7 +64,7 @@ public class turret extends LinearOpMode {
         integral = Range.clip(integral, -MAX_INTEGRAL, MAX_INTEGRAL);
         double integral_term = kI * integral;
 
-        // Derivative term
+        // Derivative term (damping)
         double derivative = (error - previousError) / dt;
         double derivative_term = kD * derivative;
 
@@ -81,23 +83,24 @@ public class turret extends LinearOpMode {
         // Map hardware
         rotationMotor = hardwareMap.get(DcMotor.class, "rotationMotor");
         rotationMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rotationMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        rotationMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         rotationMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         FrontLeft = hardwareMap.get(DcMotor.class, "FrontLeft");
         FrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
         BackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         BackRight = hardwareMap.get(DcMotor.class, "BackRight");
-        IntakeServo = hardwareMap.get(Servo.class, "IntakeServo");
-        FrontLeft.setDirection(DcMotor.Direction.REVERSE);
+        IntakeMotor = hardwareMap.get(DcMotor.class, "IntakeMotor");
+        IntakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        FrontLeft.setDirection(DcMotor.Direction.FORWARD);
         BackLeft.setDirection(DcMotor.Direction.REVERSE);
-        FrontRight.setDirection(DcMotor.Direction.FORWARD);
+        FrontRight.setDirection(DcMotor.Direction.REVERSE);
         BackRight.setDirection(DcMotor.Direction.FORWARD);
         FrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         BackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         FrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         BackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
+        IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         Shooter = hardwareMap.get(DcMotor.class, "Shooter");
         Shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         Shooter.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -122,9 +125,9 @@ public class turret extends LinearOpMode {
         while (opModeIsActive()) {
             LLResult llResult = limelight.getLatestResult();
             double shooterPower = MIN_SHOOTER_POWER;
-            double y  = -gamepad1.left_stick_y;
-            double x  =  gamepad1.left_stick_x;
-            double rx =  gamepad1.right_stick_x;
+            double y = -gamepad1.left_stick_y;
+            double x = gamepad1.left_stick_x;
+            double rx = gamepad1.right_stick_x;
 
             double denominator = Math.max(Math.abs(y) + Math.abs(x) + Math.abs(rx), 1);
             frontLeftPower = (y + x + rx) / denominator;
@@ -136,11 +139,11 @@ public class turret extends LinearOpMode {
             BackLeft.setPower(backLeftPower);
             FrontRight.setPower(frontRightPower);
             BackRight.setPower(backRightPower);
-
-            telemetry.addData("Front Left Power", frontLeftPower);
-            telemetry.addData("Front Right Power", frontRightPower);
-            telemetry.addData("Back Left Power", backLeftPower);
-            telemetry.addData("Back Right Power", backRightPower);
+            if (gamepad1.a) {
+                IntakeMotor.setPower(0.5);
+            } else {
+                IntakeMotor.setPower(0);
+            }
 
             if (llResult != null && llResult.isValid()) {
                 double tx = llResult.getTx();
@@ -164,29 +167,56 @@ public class turret extends LinearOpMode {
                 telemetry.addData("Error", error);
                 telemetry.addData("ShooterPower", shooterPower);
 
-                // Simple control: if error is outside deadzone, move motor
+                // Improved control with velocity limiting
                 if (absError > DEADZONE) {
                     // Calculate PID output
                     double pidOutput = calculatePID(error);
 
                     // Convert PID output to motor power
-                    double motorPower = Range.clip(pidOutput * 0.1, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
+                    double targetMotorPower = Range.clip(pidOutput * 0.08, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
 
-                    // Set motor power directly
+                    // Apply velocity limiting to prevent rapid changes
+                    double powerDifference = targetMotorPower - lastMotorPower;
+                    double limitedDifference = Range.clip(powerDifference, -VELOCITY_LIMIT, VELOCITY_LIMIT);
+                    double motorPower = lastMotorPower + limitedDifference;
+
+                    // Apply minimum power threshold to overcome friction
+                    if (Math.abs(motorPower) > 0 && Math.abs(motorPower) < MIN_MOTOR_POWER) {
+                        motorPower = Math.signum(motorPower) * MIN_MOTOR_POWER;
+                    }
+
                     rotationMotor.setPower(motorPower);
+                    lastMotorPower = motorPower;
 
                     telemetry.addData("Status", "Tracking");
                     telemetry.addData("Motor Power", motorPower);
                     telemetry.addData("PID Output", pidOutput);
                 } else {
-                    // Stop motor when in deadzone
-                    rotationMotor.setPower(0);
-                    integral = 0.0; // Reset integral to prevent windup
+                    // Gradually reduce motor power when in deadzone
+                    double reducedPower = lastMotorPower * 0.8; // Gradual reduction
+                    if (Math.abs(reducedPower) < 0.02) {
+                        reducedPower = 0;
+                    }
+
+                    rotationMotor.setPower(reducedPower);
+                    lastMotorPower = reducedPower;
+
+                    // Reset integral when settled
+                    if (Math.abs(reducedPower) < 0.01) {
+                        integral = 0.0;
+                    }
+
                     telemetry.addData("Status", "Centered");
                 }
             } else {
-                // Stop motor when no target detected
-                rotationMotor.setPower(0);
+                // Gradually stop motor when no target detected
+                double reducedPower = lastMotorPower * 0.7;
+                if (Math.abs(reducedPower) < 0.02) {
+                    reducedPower = 0;
+                }
+
+                rotationMotor.setPower(reducedPower);
+                lastMotorPower = reducedPower;
                 integral = 0.0;
                 telemetry.addData("Status", "No Data");
             }
