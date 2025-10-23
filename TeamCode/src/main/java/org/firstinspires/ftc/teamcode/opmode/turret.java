@@ -91,7 +91,7 @@ public class turret extends LinearOpMode {
         BackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         BackRight = hardwareMap.get(DcMotor.class, "BackRight");
         IntakeMotor = hardwareMap.get(DcMotor.class, "IntakeMotor");
-        IntakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        IntakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         FrontLeft.setDirection(DcMotor.Direction.FORWARD);
         BackLeft.setDirection(DcMotor.Direction.REVERSE);
         FrontRight.setDirection(DcMotor.Direction.REVERSE);
@@ -140,7 +140,7 @@ public class turret extends LinearOpMode {
             FrontRight.setPower(frontRightPower);
             BackRight.setPower(backRightPower);
             if (gamepad1.a) {
-                IntakeMotor.setPower(0.5);
+                IntakeMotor.setPower(0.75);
             } else {
                 IntakeMotor.setPower(0);
             }
