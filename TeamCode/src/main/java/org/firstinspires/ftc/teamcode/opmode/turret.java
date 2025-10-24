@@ -13,7 +13,7 @@ public class turret extends LinearOpMode {
     private static final double TARGETTX = 0.0;
 
     // Simple control parameters
-    private static final double LARGE_DEADZONE = 1.5; // Much larger deadzone - don't move for small errors
+    private static final double LARGE_DEADZONE = 4.5; // Much larger deadzone - don't move for small errors
     private static final double MAX_MOTOR_POWER = 0.25; // Reduced max power
     private static final double ROTATION_SPEED = 0.15; // Base rotation speed
     private static final double MIN_MOTOR_POWER = 0.08; // Minimum power to move motor
@@ -25,7 +25,7 @@ public class turret extends LinearOpMode {
     private static final double MAX_TARGET_AREA = 5.0;   // Largest expected target area (close)
 
     // Additional power when target is found and centered
-    private static final double TARGET_FOUND_BONUS = 0.15; // Extra power when target is centered
+    private static final double TARGET_FOUND_BONUS = 0.12; // Extra power when target is centered
     private static final double NO_TARGET_POWER = 0.1; // Very low power when no target
 
     double frontLeftPower = (0.15);
@@ -37,6 +37,7 @@ public class turret extends LinearOpMode {
     private Limelight3A limelight;
     private DcMotor Shooter, Shooter2;
     private DcMotor FrontLeft, FrontRight, BackLeft, BackRight, IntakeMotor;
+    private Servo Pusher;
     private double lastMotorPower = 0.0;
 
     @Override
@@ -52,6 +53,8 @@ public class turret extends LinearOpMode {
         BackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         BackRight = hardwareMap.get(DcMotor.class, "BackRight");
         IntakeMotor = hardwareMap.get(DcMotor.class, "IntakeMotor");
+        Pusher = hardwareMap.get(Servo.class, "Pusher");
+        Pusher.setDirection(Servo.Direction.REVERSE);
         IntakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         FrontLeft.setDirection(DcMotor.Direction.FORWARD);
         BackLeft.setDirection(DcMotor.Direction.REVERSE);
@@ -104,72 +107,78 @@ public class turret extends LinearOpMode {
             } else {
                 IntakeMotor.setPower(0);
             }
+            if (gamepad1.b) {
+                Pusher.setPosition(1);
 
-            if (llResult != null && llResult.isValid()) {
-                double tx = llResult.getTx();
-                double ta = llResult.getTa();
-                double error = TARGETTX - tx;
-                double absError = Math.abs(error);
-
-                // INVERTED shooter power calculation: smaller ta (farther) = higher power
-                if (ta > 0) {
-                    // Inverted calculation: MAX_SHOOTER_POWER for small ta, MIN_SHOOTER_POWER for large ta
-                    shooterPower = Range.clip(
-                            MAX_SHOOTER_POWER - (ta - MIN_TARGET_AREA) *
-                                    (MAX_SHOOTER_POWER - MIN_SHOOTER_POWER) / (MAX_TARGET_AREA - MIN_TARGET_AREA),
-                            MIN_SHOOTER_POWER,
-                            MAX_SHOOTER_POWER
-                    );
-                }
-
-                telemetry.addData("Tx", tx);
-                telemetry.addData("Ty", llResult.getTy());
-                telemetry.addData("Ta", ta);
-                telemetry.addData("Error", error);
-                telemetry.addData("Base ShooterPower", shooterPower);
-
-                // Simple proportional control with large deadzone
-                if (absError > LARGE_DEADZONE) {
-                    // Calculate motor power directly from error (no PID)
-                    double motorPower = error * ROTATION_SPEED;
-
-                    // Apply power limits
-                    motorPower = Range.clip(motorPower, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
-
-                    // Apply minimum power threshold
-                    if (Math.abs(motorPower) > 0 && Math.abs(motorPower) < MIN_MOTOR_POWER) {
-                        motorPower = Math.signum(motorPower) * MIN_MOTOR_POWER;
-                    }
-
-                    rotationMotor.setPower(motorPower);
-                    lastMotorPower = motorPower;
-
-                    telemetry.addData("Status", "Tracking");
-                    telemetry.addData("Motor Power", motorPower);
-                } else {
-                    // Target is centered - increase shooter power!
-                    shooterPower += TARGET_FOUND_BONUS;
-                    shooterPower = Range.clip(shooterPower, 0, 1.0); // Cap at 100%
-
-                    rotationMotor.setPower(0);
-                    lastMotorPower = 0;
-                    telemetry.addData("Status", "Centered - MAX POWER!");
-                    telemetry.addData("Target Found Bonus", TARGET_FOUND_BONUS);
-                }
             } else {
-                // No target detected - use very low power
-                shooterPower = NO_TARGET_POWER;
-                rotationMotor.setPower(0);
-                lastMotorPower = 0;
-                telemetry.addData("Status", "No Data");
+                Pusher.setPosition(0.5);
             }
 
-            Shooter.setPower(shooterPower);
-            Shooter2.setPower(shooterPower);
+                if (llResult != null && llResult.isValid()) {
+                    double tx = llResult.getTx();
+                    double ta = llResult.getTa();
+                    double error = TARGETTX - tx;
+                    double absError = Math.abs(error);
 
-            telemetry.addData("Final Shooter Power", shooterPower);
-            telemetry.update();
-            sleep(20);
+                    // INVERTED shooter power calculation: smaller ta (farther) = higher power
+                    if (ta > 0) {
+                        // Inverted calculation: MAX_SHOOTER_POWER for small ta, MIN_SHOOTER_POWER for large ta
+                        shooterPower = Range.clip(
+                                MAX_SHOOTER_POWER - (ta - MIN_TARGET_AREA) *
+                                        (MAX_SHOOTER_POWER - MIN_SHOOTER_POWER) / (MAX_TARGET_AREA - MIN_TARGET_AREA),
+                                MIN_SHOOTER_POWER,
+                                MAX_SHOOTER_POWER
+                        );
+                    }
+
+                    telemetry.addData("Tx", tx);
+                    telemetry.addData("Ty", llResult.getTy());
+                    telemetry.addData("Ta", ta);
+                    telemetry.addData("Error", error);
+                    telemetry.addData("Base ShooterPower", shooterPower);
+
+                    // Simple proportional control with large deadzone
+                    if (absError > LARGE_DEADZONE) {
+                        // Calculate motor power directly from error (no PID)
+                        double motorPower = error * ROTATION_SPEED;
+
+                        // Apply power limits
+                        motorPower = Range.clip(motorPower, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
+
+                        // Apply minimum power threshold
+                        if (Math.abs(motorPower) > 0 && Math.abs(motorPower) < MIN_MOTOR_POWER) {
+                            motorPower = Math.signum(motorPower) * MIN_MOTOR_POWER;
+                        }
+
+                        rotationMotor.setPower(motorPower);
+                        lastMotorPower = motorPower;
+
+                        telemetry.addData("Status", "Tracking");
+                        telemetry.addData("Motor Power", motorPower);
+                    } else {
+                        // Target is centered - increase shooter power!
+                        shooterPower += TARGET_FOUND_BONUS;
+                        shooterPower = Range.clip(shooterPower, 0, 1.0); // Cap at 100%
+
+                        rotationMotor.setPower(0);
+                        lastMotorPower = 0;
+                        telemetry.addData("Status", "Centered - MAX POWER!");
+                        telemetry.addData("Target Found Bonus", TARGET_FOUND_BONUS);
+                    }
+                } else {
+                    // No target detected - use very low power
+                    shooterPower = NO_TARGET_POWER;
+                    rotationMotor.setPower(0);
+                    lastMotorPower = 0;
+                    telemetry.addData("Status", "No Data");
+                }
+
+                Shooter.setPower(shooterPower);
+                Shooter2.setPower(shooterPower);
+
+                telemetry.addData("Final Shooter Power", shooterPower);
+                telemetry.update();
+                sleep(20);
+            }
         }
     }
-}
