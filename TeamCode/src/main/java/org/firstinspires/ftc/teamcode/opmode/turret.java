@@ -25,7 +25,7 @@ public class turret extends LinearOpMode {
     private static final double MAX_TARGET_AREA = 5.0;   // Largest expected target area (close)
 
     // Additional power when target is found and centered
-    private static final double TARGET_FOUND_BONUS = 0.12; // Extra power when target is centered
+    private static final double TARGET_FOUND_BONUS = 0.0; // Extra power when target is centered
     private static final double NO_TARGET_POWER = 0.1; // Very low power when no target
 
     double frontLeftPower = (0.15);
@@ -103,16 +103,23 @@ public class turret extends LinearOpMode {
             BackRight.setPower(backRightPower);
 
             if (gamepad1.a) {
-                IntakeMotor.setPower(0.75);
+                IntakeMotor.setPower(0.8);
             } else {
                 IntakeMotor.setPower(0);
             }
             if (gamepad1.b) {
                 Pusher.setPosition(1);
-
-            } else {
+            }
+            else {
                 Pusher.setPosition(0.5);
             }
+            if (gamepad1.x){
+                Pusher.setPosition(0);
+            }
+            else {
+                Pusher.setPosition(0.5);
+            }
+
 
                 if (llResult != null && llResult.isValid()) {
                     double tx = llResult.getTx();
