@@ -12,31 +12,22 @@ import com.qualcomm.robotcore.util.Range;
 public class turret extends LinearOpMode {
     private static final double TARGETTX = 0.0;
 
-    // PID Constants - Tuned to reduce wobble
-    private static final double kP = 0.008;  // Reduced proportional gain
-    private static final double kI = 0.0005; // Reduced integral gain
-    private static final double kD = 0.08;   // Increased derivative gain for damping
+    // Simple control parameters
+    private static final double LARGE_DEADZONE = 1.5; // Much larger deadzone - don't move for small errors
+    private static final double MAX_MOTOR_POWER = 0.25; // Reduced max power
+    private static final double ROTATION_SPEED = 0.15; // Base rotation speed
+    private static final double MIN_MOTOR_POWER = 0.08; // Minimum power to move motor
 
-    // PID State Variables
-    private double previousError = 0.0;
-    private double integral = 0.0;
-    private double lastTime = 0.0;
-    private double lastMotorPower = 0.0; // Track last motor power for smoothing
+    // Shooter power constants - INVERTED for distance-based power
+    private static final double MIN_SHOOTER_POWER = 0.4; // Higher minimum power for close targets
+    private static final double MAX_SHOOTER_POWER = 0.9; // Maximum power for far targets
+    private static final double MIN_TARGET_AREA = 0.1;   // Smallest expected target area (far)
+    private static final double MAX_TARGET_AREA = 5.0;   // Largest expected target area (close)
 
-    // Integral windup protection
-    private static final double MAX_INTEGRAL = 3.0; // Reduced maximum integral
+    // Additional power when target is found and centered
+    private static final double TARGET_FOUND_BONUS = 0.15; // Extra power when target is centered
+    private static final double NO_TARGET_POWER = 0.1; // Very low power when no target
 
-    // Control parameters - Adjusted to reduce wobble
-    private static final double DEADZONE = 0.5; // Increased deadzone
-    private static final double MAX_MOTOR_POWER = 0.3; // Reduced max power
-    private static final double VELOCITY_LIMIT = 0.15; // Maximum change in motor power per loop
-    private static final double MIN_MOTOR_POWER = 0.05; // Minimum power to overcome friction
-
-    // Shooter power constants based on target area
-    private static final double MIN_SHOOTER_POWER = 0.2;
-    private static final double MAX_SHOOTER_POWER = 0.8;
-    private static final double MIN_TARGET_AREA = 0.1;
-    private static final double MAX_TARGET_AREA = 5.0;
     double frontLeftPower = (0.15);
     double frontRightPower = (0.15);
     double backLeftPower = (0.15);
@@ -46,37 +37,7 @@ public class turret extends LinearOpMode {
     private Limelight3A limelight;
     private DcMotor Shooter, Shooter2;
     private DcMotor FrontLeft, FrontRight, BackLeft, BackRight, IntakeMotor;
-
-    private double calculatePID(double error) {
-        double currentTime = getRuntime();
-        double dt = currentTime - lastTime;
-
-        // Avoid division by zero on first iteration
-        if (dt <= 0) {
-            dt = 0.02;
-        }
-
-        // Proportional term
-        double proportional = kP * error;
-
-        // Integral term with windup protection
-        integral += error * dt;
-        integral = Range.clip(integral, -MAX_INTEGRAL, MAX_INTEGRAL);
-        double integral_term = kI * integral;
-
-        // Derivative term (damping)
-        double derivative = (error - previousError) / dt;
-        double derivative_term = kD * derivative;
-
-        // Calculate PID output
-        double output = proportional + integral_term + derivative_term;
-
-        // Update state variables for next iteration
-        previousError = error;
-        lastTime = currentTime;
-
-        return output;
-    }
+    private double lastMotorPower = 0.0;
 
     @Override
     public void runOpMode() {
@@ -101,6 +62,7 @@ public class turret extends LinearOpMode {
         FrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         BackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         IntakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         Shooter = hardwareMap.get(DcMotor.class, "Shooter");
         Shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         Shooter.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -115,16 +77,13 @@ public class turret extends LinearOpMode {
         limelight.pipelineSwitch(0);
         limelight.start();
 
-        // Initialize PID timing
-        lastTime = getRuntime();
-
         telemetry.addLine("Waiting for start...");
         telemetry.update();
         waitForStart();
 
         while (opModeIsActive()) {
             LLResult llResult = limelight.getLatestResult();
-            double shooterPower = MIN_SHOOTER_POWER;
+            double shooterPower = NO_TARGET_POWER; // Start with low power
             double y = -gamepad1.left_stick_y;
             double x = gamepad1.left_stick_x;
             double rx = gamepad1.right_stick_x;
@@ -139,6 +98,7 @@ public class turret extends LinearOpMode {
             BackLeft.setPower(backLeftPower);
             FrontRight.setPower(frontRightPower);
             BackRight.setPower(backRightPower);
+
             if (gamepad1.a) {
                 IntakeMotor.setPower(0.75);
             } else {
@@ -151,8 +111,9 @@ public class turret extends LinearOpMode {
                 double error = TARGETTX - tx;
                 double absError = Math.abs(error);
 
-                // Calculate shooter power based on target area (distance)
+                // INVERTED shooter power calculation: smaller ta (farther) = higher power
                 if (ta > 0) {
+                    // Inverted calculation: MAX_SHOOTER_POWER for small ta, MIN_SHOOTER_POWER for large ta
                     shooterPower = Range.clip(
                             MAX_SHOOTER_POWER - (ta - MIN_TARGET_AREA) *
                                     (MAX_SHOOTER_POWER - MIN_SHOOTER_POWER) / (MAX_TARGET_AREA - MIN_TARGET_AREA),
@@ -165,22 +126,17 @@ public class turret extends LinearOpMode {
                 telemetry.addData("Ty", llResult.getTy());
                 telemetry.addData("Ta", ta);
                 telemetry.addData("Error", error);
-                telemetry.addData("ShooterPower", shooterPower);
+                telemetry.addData("Base ShooterPower", shooterPower);
 
-                // Improved control with velocity limiting
-                if (absError > DEADZONE) {
-                    // Calculate PID output
-                    double pidOutput = calculatePID(error);
+                // Simple proportional control with large deadzone
+                if (absError > LARGE_DEADZONE) {
+                    // Calculate motor power directly from error (no PID)
+                    double motorPower = error * ROTATION_SPEED;
 
-                    // Convert PID output to motor power
-                    double targetMotorPower = Range.clip(pidOutput * 0.08, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
+                    // Apply power limits
+                    motorPower = Range.clip(motorPower, -MAX_MOTOR_POWER, MAX_MOTOR_POWER);
 
-                    // Apply velocity limiting to prevent rapid changes
-                    double powerDifference = targetMotorPower - lastMotorPower;
-                    double limitedDifference = Range.clip(powerDifference, -VELOCITY_LIMIT, VELOCITY_LIMIT);
-                    double motorPower = lastMotorPower + limitedDifference;
-
-                    // Apply minimum power threshold to overcome friction
+                    // Apply minimum power threshold
                     if (Math.abs(motorPower) > 0 && Math.abs(motorPower) < MIN_MOTOR_POWER) {
                         motorPower = Math.signum(motorPower) * MIN_MOTOR_POWER;
                     }
@@ -190,40 +146,28 @@ public class turret extends LinearOpMode {
 
                     telemetry.addData("Status", "Tracking");
                     telemetry.addData("Motor Power", motorPower);
-                    telemetry.addData("PID Output", pidOutput);
                 } else {
-                    // Gradually reduce motor power when in deadzone
-                    double reducedPower = lastMotorPower * 0.8; // Gradual reduction
-                    if (Math.abs(reducedPower) < 0.02) {
-                        reducedPower = 0;
-                    }
+                    // Target is centered - increase shooter power!
+                    shooterPower += TARGET_FOUND_BONUS;
+                    shooterPower = Range.clip(shooterPower, 0, 1.0); // Cap at 100%
 
-                    rotationMotor.setPower(reducedPower);
-                    lastMotorPower = reducedPower;
-
-                    // Reset integral when settled
-                    if (Math.abs(reducedPower) < 0.01) {
-                        integral = 0.0;
-                    }
-
-                    telemetry.addData("Status", "Centered");
+                    rotationMotor.setPower(0);
+                    lastMotorPower = 0;
+                    telemetry.addData("Status", "Centered - MAX POWER!");
+                    telemetry.addData("Target Found Bonus", TARGET_FOUND_BONUS);
                 }
             } else {
-                // Gradually stop motor when no target detected
-                double reducedPower = lastMotorPower * 0.7;
-                if (Math.abs(reducedPower) < 0.02) {
-                    reducedPower = 0;
-                }
-
-                rotationMotor.setPower(reducedPower);
-                lastMotorPower = reducedPower;
-                integral = 0.0;
+                // No target detected - use very low power
+                shooterPower = NO_TARGET_POWER;
+                rotationMotor.setPower(0);
+                lastMotorPower = 0;
                 telemetry.addData("Status", "No Data");
             }
 
             Shooter.setPower(shooterPower);
             Shooter2.setPower(shooterPower);
 
+            telemetry.addData("Final Shooter Power", shooterPower);
             telemetry.update();
             sleep(20);
         }
